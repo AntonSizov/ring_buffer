@@ -2,13 +2,19 @@
 
 -module(rbuf).
 
--compile([export_all]).
-
+% API
 -export([
 	new/1, new/2, new/3,
 	set/2, set/3,
 	get/1, get/2
-	]).
+]).
+
+% Tests
+-export([
+	test_get_next/0,
+	test_get_position/0,
+	test/0
+]).
 
 %% SERIAL element access ring buffer structure
 -record(srb, {
@@ -17,7 +23,7 @@
 	endp = 0 :: integer(), %% end read at array pointer
 	empty = true :: boolean(),
 	array :: term()
-	}).
+}).
 
 %% RANDOM element access ring buffer structure
 -record(rrb, {
@@ -25,15 +31,21 @@
 	startp = 0 :: integer(), %% start reading from array pointer
 	default = undefined,
 	array :: term()
-	}).
+}).
 
 -type ring_buffer() :: #srb{} | #rrb{}.
 
+%% ===================================================================
+%% API
+%% ===================================================================
+
 %% @doc Create new serial access ring buffer
 %% with size = Size
+-spec new(pos_integer()) -> ring_buffer().
 new(Size) when is_integer(Size) ->
 	new(Size, serial, undefined).
 
+-spec new(pos_integer(), term()) -> ring_buffer().
 new(Size, Default) ->
 	new(Size, serial, Default).
 
@@ -50,7 +62,7 @@ new(Size, random, Default) ->
 -spec set(Item :: term(), RB1 :: ring_buffer()) ->
 	{ok, RB2 :: ring_buffer()}.
 
-set(Item, RB = #srb{	array = A,
+set(Item, RB = #srb{array = A,
 					empty = true,
 					endp = P,
 					startp = P}) ->
@@ -74,7 +86,7 @@ set(Item, RB = #srb{	array = A,
 	end.
 
 %% @doc Get get next element, delete it & retuns new buffer.
--spec get(RB1 :: ring_buffer()) -> 
+-spec get(RB1 :: ring_buffer()) ->
 	{{value, Item :: term()}, RB2 :: ring_buffer()} |
 	{empty, RB2 :: ring_buffer()}.
 
@@ -114,7 +126,7 @@ set(Item, Pos, RB = #rrb{array = A, startp = SP, size = S}) ->
 
 %% @doc Get specified element. Element leavs in buffer.
 %% Only for random access buffer type.
--spec get(Position :: integer(), RB1 :: ring_buffer()) -> 
+-spec get(Position :: integer(), RB1 :: ring_buffer()) ->
 	{{value, Item :: term()}, RB1 :: ring_buffer()} |
 	{empty, RB2 :: ring_buffer()} |
 	{error, out_of_range}.
@@ -125,7 +137,9 @@ get(Pos, RB = #rrb{array = A, startp = SP, size = S}) ->
 	Item = array:get(I, A),
 	{{value, Item}, RB}.
 
-%% Local functions definitions
+%% ===================================================================
+%% Internals
+%% ===================================================================
 
 get_next(Size, Index) ->
 	get_position(Size, Index, 2).
@@ -141,32 +155,36 @@ get_position(Size, StartPoint, Position) ->
 			Point - Sn -1
 	end.
 
-%% TEST FUNCTIONS DEFINITIONS
+%% ===================================================================
+%% Tests
+%% ===================================================================
 
+-spec test_get_next() -> ignore.
 test_get_next() ->
 	Size = 3,
 	io:format("get next test~n", []),
 	lists:foreach(fun(CurrentPoint)->
 		GP = get_next(Size, CurrentPoint),
-		io:format("Size: ~p, CurrentPoint: ~p, GotPoint: ~p~n", 
+		io:format("Size: ~p, CurrentPoint: ~p, GotPoint: ~p~n",
 			[Size, CurrentPoint, GP])
 	end, lists:seq(0, Size - 1)).
 
-
+-spec test_get_position() -> ignore.
 test_get_position() ->
 	Size = 3,
 	lists:foreach(fun(CurrentPoint) ->
 		lists:foreach(fun(Pos)->
 			GP = get_position(Size, CurrentPoint, Pos),
-			io:format("Size: ~p, CurrentPoint: ~p, Pos: ~p, GotPoint: ~p~n", 
+			io:format("Size: ~p, CurrentPoint: ~p, Pos: ~p, GotPoint: ~p~n",
 				[Size, CurrentPoint, Pos, GP])
 		end, lists:seq(1, Size))
 	end, lists:seq(0, Size - 1)).
 
+-spec test() -> ignore.
 test() ->
 	Size = 3,
 	RB = rbuf:new(3, random, undefined),
-	lists:foreach(fun(Pos) -> 
+	lists:foreach(fun(Pos) ->
 		{{value, undefined}, RB} = rbuf:get(Pos, RB)
 	end, lists:seq(1, Size)),
 
